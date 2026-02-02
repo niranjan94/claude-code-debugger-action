@@ -1,0 +1,50 @@
+name: "Claude Code Debugger Action v1.0"
+description: "Access your remote claude code."
+branding:
+  icon: "at-sign"
+  color: "orange"
+
+inputs:
+  anthropic_api_key:
+    description: "Anthropic API key (required for direct API, not needed for Bedrock/Vertex/Foundry)"
+    required: false
+  claude_code_oauth_token:
+    description: "Claude Code OAuth token (alternative to anthropic_api_key)"
+    required: false
+  github_token:
+    description: "GitHub token with repo and pull request permissions (optional if using GitHub App)"
+    required: false
+  authorized_users:
+    description: "Comma-separated list of GitHub usernames that are allowed to use this action"
+    required: true
+  duration:
+    description: "The initial breakpoint duration. This input is ignored when mode is set to background"
+    required: true
+    default: "30m"
+
+
+runs:
+  using: "composite"
+  env:
+    CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+  steps:
+    - name: Install Claude Code
+      run: curl -fsSL https://claude.ai/install.sh | bash
+      shell: bash
+    - name: Set path
+      run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      shell: bash
+    - name: Set claude config
+      run: |
+        jq -n --argjson hasCompleted "true" \
+               --argjson autoUpdates "false" \
+               '. + {hasCompletedOnboarding: $hasCompleted, autoUpdates: $autoUpdates}' > ~/.claude.json
+      shell: bash
+    - name: Breakpoint for connection
+      uses: namespacelabs/breakpoint-action@v0
+      with:
+        duration: ${{ inputs.duration }}
+        authorized-users: ${{ inputs.authorized_users }}
+        mode: 'pause'
